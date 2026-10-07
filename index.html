@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Казино для своих</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--felt:#0f4d3a;--deep:#0a3328;--brass:#d9a441;--cream:#f3ead3;--ruby:#b3262e;--ink:#14110d}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--deep);color:var(--cream);font:16px/1.4 "Trebuchet MS",system-ui,sans-serif}
+body{min-height:100vh;padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px));max-width:480px;margin:0 auto}
+button{font:inherit;color:inherit;cursor:pointer;border:0}
+button:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+header b{font-size:15px;font-weight:600;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bank{display:flex;align-items:center;gap:8px;background:var(--ink);border-radius:999px;padding:4px 16px 4px 4px}
+.chip{width:34px;height:34px;border-radius:50%;background:var(--ruby);border:3px dashed var(--cream);box-shadow:inset 0 0 0 3px var(--ruby)}
+#bal{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--brass)}
+nav{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:14px 0}
+nav button{background:var(--felt);border-radius:10px;padding:9px 2px;font-size:14px;font-weight:600}
+nav button[aria-pressed=true]{background:var(--brass);color:var(--ink)}
+.table{background:var(--felt);border:3px solid var(--brass);border-radius:18px;padding:18px 12px;min-height:170px;display:flex;align-items:center;justify-content:center;gap:10px}
+.reel{width:30%;max-width:104px;aspect-ratio:3/4;background:var(--cream);color:var(--ink);border-radius:10px;display:grid;place-items:center;font-size:46px;box-shadow:inset 0 6px 10px rgba(0,0,0,.25)}
+.stop{animation:thud .2s}
+@keyframes thud{50%{transform:translateY(5px)}}
+.wheel{width:132px;height:132px;border-radius:50%;display:grid;place-items:center;font-size:52px;font-weight:800;border:6px solid var(--brass);background:var(--ink);color:var(--cream)}
+.wheel.red{background:var(--ruby)}.wheel.green{background:#1d7a4f}
+.coin{width:120px;height:120px;border-radius:50%;display:grid;place-items:center;font-size:56px;font-weight:800;background:var(--brass);color:var(--ink);border:6px double var(--ink)}
+.die{width:84px;height:84px;display:grid;place-items:center;font-size:76px;line-height:1;background:var(--cream);color:var(--ink);border-radius:14px}
+.opts,.bets{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 0}
+.opts button,.bets button{background:var(--felt);border-radius:999px;padding:8px 14px;font-weight:600}
+.opts button[aria-pressed=true],.bets button[aria-pressed=true]{background:var(--cream);color:var(--ink)}
+.opts input{width:64px;border-radius:999px;border:2px solid var(--brass);background:var(--ink);color:var(--cream);padding:6px 10px;font:inherit;text-align:center}
+.bets{align-items:center}.bets span{opacity:.75;font-size:14px;margin-right:2px}
+#go{display:block;width:100%;margin-top:16px;padding:15px;border-radius:14px;background:var(--brass);color:var(--ink);font-size:20px;font-weight:800}
+#go:disabled{opacity:.5}
+#msg{min-height:28px;margin:12px 0 0;text-align:center;font-size:18px;font-weight:600}
+#gift{display:none;width:100%;margin-top:8px;padding:12px;border-radius:12px;background:var(--cream);color:var(--ink);font-weight:700}
+small{display:block;margin-top:18px;text-align:center;opacity:.55;font-size:12px}
+@media(prefers-reduced-motion:reduce){.stop{animation:none}}
+</style>
+</head>
+<body>
+<header><b id="who">Игрок</b><div class="bank"><div class="chip"></div><span id="bal">0</span></div></header>
+<nav id="tabs"></nav>
+<div class="table" id="stage"></div>
+<div class="opts" id="opts"></div>
+<div class="bets" id="bets"></div>
+<button id="go">Крутить</button>
+<p id="msg"></p>
+<button id="gift">Взять подарок: 500 фишек</button>
+<small>Фишки ненастоящие и ничего не стоят. Играем для удовольствия.</small>
+<script>
+const tg = window.Telegram && Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#0a3328'); tg.setBackgroundColor('#0a3328'); } catch (e) {} }
+const $ = s => document.querySelector(s);
+const rnd = n => Math.floor(Math.random() * n);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const KEY = 'casino_v1';
+const st = { bal: 1000, bet: 50, game: 'slots' };
+try { const o = JSON.parse(localStorage.getItem(KEY) || '{}'); if (o.bal >= 0) st.bal = o.bal; if (o.bet > 0) st.bet = o.bet; } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ bal: st.bal, bet: st.bet })); } catch (e) {} };
+const buzz = t => { try { tg.HapticFeedback.notificationOccurred(t); } catch (e) {} };
+const bump = () => { try { tg.HapticFeedback.impactOccurred('light'); } catch (e) {} };
+const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+if (user) $('#who').textContent = user.first_name;
+
+const SYM = ['🍒', '🍋', '🔔', '⭐', '💎', '7️⃣'], PAY = [8, 8, 12, 16, 25, 40];
+const RED = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+const FACE = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+const pick = { roulette: 'red', coin: 'o', dice: 'hi' };
+
+const GAMES = {
+  slots: {
+    name: 'Слоты', opts: null,
+    view: () => '<div class="reel">🍒</div><div class="reel">🍋</div><div class="reel">🔔</div>',
+    async run(b) {
+      const r = [rnd(6), rnd(6), rnd(6)], els = [...document.querySelectorAll('.reel')];
+      await Promise.all(els.map((el, i) => new Promise(res => {
+        let n = 0;
+        const t = setInterval(() => {
+          el.textContent = SYM[rnd(6)];
+          if (++n >= 10 + i * 6) { clearInterval(t); el.textContent = SYM[r[i]]; el.classList.add('stop'); bump(); setTimeout(() => el.classList.remove('stop'), 220); res(); }
+        }, 70);
+      })));
+      if (r[0] === r[1] && r[1] === r[2]) return b * PAY[r[0]];
+      if (r[0] === r[1] || r[1] === r[2] || r[0] === r[2]) return b;
+      return 0;
+    }
+  },
+  roulette: {
+    name: 'Рулетка',
+    opts: [['red', 'Красное ×2'], ['black', 'Чёрное ×2'], ['even', 'Чёт ×2'], ['odd', 'Нечет ×2'], ['zero', 'Зеро ×36'], ['num', 'Число ×36']],
+    view: () => '<div class="wheel green" id="wheel">0</div>',
+    async run(b) {
+      const n = rnd(37), w = $('#wheel');
+      const set = x => { w.textContent = x; w.className = 'wheel ' + (x === 0 ? 'green' : RED.has(x) ? 'red' : ''); };
+      for (let k = 0; k < 18; k++) { set(rnd(37)); await sleep(80 + k * 6); }
+      set(n); bump();
+      const p = pick.roulette;
+      if (p === 'red' && n && RED.has(n)) return b * 2;
+      if (p === 'black' && n && !RED.has(n)) return b * 2;
+      if (p === 'even' && n && n % 2 === 0) return b * 2;
+      if (p === 'odd' && n % 2 === 1) return b * 2;
+      if (p === 'zero' && n === 0) return b * 36;
+      if (p === 'num' && n === Number($('#num').value)) return b * 36;
+      return 0;
+    }
+  },
+  coin: {
+    name: 'Монетка',
+    opts: [['o', 'Орёл'], ['r', 'Решка']],
+    view: () => '<div class="coin" id="coin">О</div>',
+    async run(b) {
+      const res = rnd(2) ? 'o' : 'r', c = $('#coin');
+      for (let k = 0; k < 12; k++) { c.textContent = k % 2 ? 'О' : 'Р'; await sleep(90); }
+      c.textContent = res === 'o' ? 'О' : 'Р'; bump();
+      return pick.coin === res ? Math.floor(b * 1.95) : 0;
+    }
+  },
+  dice: {
+    name: 'Кости',
+    opts: [['hi', 'Больше 7 ×2.2'], ['lo', 'Меньше 7 ×2.2'], ['sev', 'Ровно 7 ×5.5']],
+    view: () => '<div class="die" id="d1">⚀</div><div class="die" id="d2">⚀</div>',
+    async run(b) {
+      const a = rnd(6), c = rnd(6), sum = a + c + 2;
+      for (let k = 0; k < 12; k++) { $('#d1').textContent = FACE[rnd(6)]; $('#d2').textContent = FACE[rnd(6)]; await sleep(80); }
+      $('#d1').textContent = FACE[a]; $('#d2').textContent = FACE[c]; bump();
+      const p = pick.dice;
+      if (p === 'hi' && sum > 7) return Math.floor(b * 2.2);
+      if (p === 'lo' && sum < 7) return Math.floor(b * 2.2);
+      if (p === 'sev' && sum === 7) return Math.floor(b * 5.5);
+      return 0;
+    }
+  }
+};
+
+let busy = false;
+const fmt = n => n.toLocaleString('ru-RU');
+function draw() {
+  $('#bal').textContent = fmt(st.bal);
+  $('#gift').style.display = st.bal < 10 ? 'block' : 'none';
+  $('#bets').innerHTML = '<span>Ставка</span>' + [10, 50, 100, 500].map(v => `<button data-bet="${v}" aria-pressed="${st.bet === v}">${v}</button>`).join('') + `<button data-bet="all" aria-pressed="${st.bet === -1}">Всё</button>`;
+  $('#go').disabled = busy;
+}
+function show(g) {
+  if (busy) return;
+  st.game = g; const G = GAMES[g];
+  $('#tabs').innerHTML = Object.keys(GAMES).map(k => `<button data-g="${k}" aria-pressed="${k === g}">${GAMES[k].name}</button>`).join('');
+  $('#stage').innerHTML = G.view();
+  $('#opts').innerHTML = G.opts ? G.opts.map(([k, l]) => `<button data-o="${k}" aria-pressed="${pick[g] === k}">${l}</button>`).join('') + (g === 'roulette' ? '<input id="num" type="number" min="0" max="36" value="7" aria-label="Число от 0 до 36">' : '') : '';
+  $('#msg').textContent = '';
+  draw();
+}
+$('#tabs').onclick = e => { const b = e.target.closest('[data-g]'); if (b) show(b.dataset.g); };
+$('#opts').onclick = e => { const b = e.target.closest('[data-o]'); if (!b || busy) return; pick[st.game] = b.dataset.o; show(st.game); };
+$('#bets').onclick = e => { const b = e.target.closest('[data-bet]'); if (!b || busy) return; st.bet = b.dataset.bet === 'all' ? -1 : Number(b.dataset.bet); save(); draw(); };
+$('#gift').onclick = () => { st.bal += 500; save(); draw(); $('#msg').textContent = 'Держи 500 фишек'; buzz('success'); };
+$('#go').onclick = async () => {
+  if (busy) return;
+  const b = st.bet === -1 ? st.bal : Math.min(st.bet, st.bal);
+  if (b <= 0) { $('#msg').textContent = 'Фишки закончились. Возьми подарок.'; return; }
+  busy = true; st.bal -= b; $('#msg').textContent = ''; draw();
+  let win = 0;
+  try { win = await GAMES[st.game].run(b); } catch (e) { win = b; }
+  st.bal += win; busy = false; save(); draw();
+  if (win > b) { $('#msg').textContent = '+' + fmt(win - b) + ' фишек'; buzz('success'); }
+  else if (win === b) { $('#msg').textContent = 'Ставка вернулась'; buzz('warning'); }
+  else { $('#msg').textContent = '−' + fmt(b) + ' фишек'; buzz('error'); }
+};
+show('slots');
+</script>
+</body>
+</html>
