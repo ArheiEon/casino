@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>Онлайн-дуэль</title>
+<title>Дуэль</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 :root{--felt:#0f4d3a;--deep:#0a3328;--brass:#d9a441;--cream:#f3ead3;--ruby:#b3262e;--ink:#14110d}
@@ -12,18 +12,22 @@ html,body{margin:0;color:var(--cream);font:16px/1.4 "Trebuchet MS",system-ui,san
 body{min-height:100vh;background:radial-gradient(ellipse at 50% 0,#17604a,var(--deep) 70%) fixed;padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px));max-width:480px;margin:0 auto}
 button{font:inherit;color:inherit;cursor:pointer;border:0}
 button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
-header{display:flex;align-items:center;justify-content:space-between}
-header a{color:var(--cream);text-decoration:none;font-weight:700}
+header{display:flex;justify-content:flex-end}
 .bank{display:flex;align-items:center;gap:8px;background:var(--ink);border-radius:999px;padding:4px 16px 4px 4px;box-shadow:0 0 0 2px var(--brass)}
 .chip{width:34px;height:34px;border-radius:50%;background:var(--ruby);border:3px dashed var(--cream);box-shadow:inset 0 0 0 3px var(--ruby)}
 #bal{font-size:22px;font-weight:800;color:var(--brass)}
-.table{background:radial-gradient(ellipse at 50% 30%,#1a6b52,var(--felt) 75%);border-radius:22px;padding:18px 14px;margin:16px 4px 0;box-shadow:0 0 0 3px var(--brass),0 0 0 7px var(--ink),inset 0 0 40px rgba(0,0,0,.4);text-align:center}
+.table{background:radial-gradient(ellipse at 50% 30%,#1a6b52,var(--felt) 75%);border-radius:22px;padding:18px 14px;margin:14px 4px 0;box-shadow:0 0 0 3px var(--brass),0 0 0 7px var(--ink),inset 0 0 40px rgba(0,0,0,.4);text-align:center}
 h2{margin:0 0 6px}p{margin:6px 0}
-.bets{display:flex;gap:6px;justify-content:center;margin:12px 0}
-.bets button{background:var(--felt);border-radius:999px;padding:8px 18px;font-weight:700;box-shadow:inset 0 0 0 1px rgba(243,234,211,.25)}
+.topnav{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 12px}
+.topnav a{background:rgba(15,77,58,.9);border-radius:12px;padding:9px 2px;text-align:center;font-weight:700;font-size:14px;text-decoration:none;color:var(--cream);box-shadow:inset 0 0 0 1px rgba(243,234,211,.15)}
+.topnav a[aria-current=page]{background:linear-gradient(var(--brass),#b8862a);color:var(--ink)}
+.bets{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:12px 0}
+.bets button{background:var(--felt);border-radius:999px;padding:8px 16px;font-weight:700;box-shadow:inset 0 0 0 1px rgba(243,234,211,.25)}
 .bets button[aria-pressed=true]{background:var(--cream);color:var(--ink)}
+.bets button:disabled{opacity:.45;cursor:default}
 .go{display:block;width:100%;margin-top:10px;padding:14px;border-radius:14px;background:linear-gradient(var(--brass),#b8862a);color:var(--ink);font-size:19px;font-weight:800;box-shadow:0 4px 0 #7d5a14}
 .alt{background:var(--felt);color:var(--cream);box-shadow:inset 0 0 0 1px rgba(243,234,211,.25)}
+.row2{display:flex;gap:8px}.row2 .go{flex:1}
 .join{display:flex;gap:6px;margin-top:14px}
 .join input{flex:1;min-width:0;border-radius:12px;border:2px solid var(--brass);background:var(--ink);color:var(--cream);padding:10px;font:inherit;text-align:center;text-transform:uppercase;letter-spacing:.2em}
 .join button{padding:10px 18px;border-radius:12px;background:var(--cream);color:var(--ink);font-weight:800}
@@ -31,32 +35,41 @@ h2{margin:0 0 6px}p{margin:6px 0}
 .err{min-height:24px;color:#ffb4a8;font-weight:700}
 .dice{display:flex;justify-content:space-around;margin:12px 0}
 .dice div{font-size:48px;line-height:1.1}.dice small{display:block;font-size:14px;opacity:.85}
-.res{font-size:24px;font-weight:800}.win{color:var(--brass)}
+.who{font-size:14px;opacity:.9;margin:10px 0 4px}
+.hand{display:flex;gap:6px;min-height:62px;justify-content:center;flex-wrap:wrap}
+.card{width:44px;height:62px;border-radius:6px;background:var(--cream);color:var(--ink);display:grid;place-items:center;font-weight:800;font-size:18px;box-shadow:0 2px 4px rgba(0,0,0,.4)}
+.card.r{color:var(--ruby)}.card.back{background:repeating-linear-gradient(45deg,var(--ruby) 0 5px,#8c1a21 5px 10px);border:2px solid var(--cream)}
+.res{font-size:24px;font-weight:800;margin-top:12px}.win{color:var(--brass)}
 .spin{animation:s .25s infinite}@keyframes s{50%{transform:rotate(12deg)}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 </head>
 <body>
-<header><a href="./">← Казино</a><div class="bank"><div class="chip"></div><span id="bal">…</span></div></header>
+<div class="topnav"><a href="./">🎰 Игры</a><a href="duel.html" aria-current="page">⚔️ Дуэль</a><a href="top.html">🏆 Топ</a></div>
+<header><div class="bank"><div class="chip"></div><span id="bal">…</span></div></header>
 <main class="table" id="v"></main>
 <script>
-// ВПИШИ СВОИ ЗНАЧЕНИЯ после развёртывания сервера:
-const API = 'https://casino-online.arheieoncasino.workers.dev';              // адрес Worker, который покажет wrangler deploy
+const API = 'https://casino-online.arheieoncasino.workers.dev';
 const BOT_LINK = 'https://t.me/ТВОЙ_БОТ/НАЗВАНИЕ';          // ссылка на мини-приложение для приглашений (необязательно)
 
 const tg = window.Telegram && Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 const $ = s => document.querySelector(s);
 const FACE = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
-let me = null, ws = null, S = null, stake = 100;
+const GAMES = { dice: ['🎲 Кости', 'Сервер бросает каждому по два кубика. У кого больше, тот забирает всё.'], bj: ['🃏 Блэкджек', 'Каждому по две карты. Бери карты, чтобы набрать ближе к 21, но не больше. Вторая карта соперника скрыта до конца. У кого ближе к 21, тот забирает всё.'] };
+let me = null, ws = null, S = null, stake = 100, game = 'dice';
 const api = (p, o = {}) => fetch(API + p, { ...o, headers: { Authorization: 'tma ' + tg.initData } }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 async function refresh() { me = await api('/api/me'); $('#bal').textContent = me.balance.toLocaleString('ru-RU'); }
+const card = c => c ? `<span class="card ${c[1] === '♥' || c[1] === '♦' ? 'r' : ''}">${{ 1: 'A', 11: 'J', 12: 'Q', 13: 'K' }[c[0]] || c[0]}${c[1]}</span>` : '<span class="card back"></span>';
+const hand = h => `<div class="hand">${h.map(card).join('')}</div>`;
+const val = h => { let s = h.reduce((a, c) => a + Math.min(c[0], 10), 0), a = h.filter(c => c[0] === 1).length; while (a-- > 0 && s + 10 <= 21) s += 10; return s; };
 
 function lobby(msg = '') {
-  if (ws) { ws.onclose = null; ws.close(); ws = null; }
+  if (ws) { ws.onclose = null; ws.onerror = null; ws.close(); ws = null; }
   S = null;
-  $('#v').innerHTML = `<h2>⚔️ Дуэль</h2><p>Двое ставят поровну, сервер бросает каждому по два кубика. У кого больше, тот забирает всё.</p>
+  $('#v').innerHTML = `<h2>⚔️ Дуэль</h2><div class="bets">${Object.entries(GAMES).map(([k, g]) => `<button data-g="${k}" aria-pressed="${k === game}">${g[0]}</button>`).join('')}<button disabled>♠️ Покер скоро</button></div>
+  <p>${GAMES[game][1]}</p>
   <div class="bets">${[50, 100, 500].map(v => `<button data-s="${v}" aria-pressed="${v === stake}">${v}</button>`).join('')}</div>
   <button class="go" id="mk">Создать дуэль</button>
   <div class="join"><input id="code" placeholder="КОД" maxlength="5" aria-label="Код комнаты"><button id="jn">Войти</button></div>
@@ -65,43 +78,55 @@ function lobby(msg = '') {
 }
 function connect(code, st) {
   ws = new WebSocket(API.replace('https', 'wss') + '/ws/' + code + '?auth=' + encodeURIComponent(tg.initData));
-  ws.onopen = () => ws.send(JSON.stringify({ t: 'enter', stake: st }));
+  ws.onopen = () => ws.send(JSON.stringify({ t: 'enter', stake: st, game }));
   ws.onmessage = async e => {
     const m = JSON.parse(e.data);
     if (m.t === 'err') return lobby(m.m);
-    S = m.s;
-    if (S.status !== 'wait') await refresh();
+    S = m.s; game = S.game;
+    if (S.status === 'done' || S.status === 'cancel') await refresh();
     view();
   };
   ws.onerror = () => lobby('Нет связи с сервером');
 }
+function resultHtml() {
+  const won = S.winner === me.id, tie = S.winner === 'tie';
+  try { tg.HapticFeedback.notificationOccurred(tie ? 'warning' : won ? 'success' : 'error'); } catch (e) {}
+  return `<p class="res ${won ? 'win' : ''}">${tie ? 'Ничья, ставки вернулись' : won ? '+' + S.stake + ' фишек' : '−' + S.stake + ' фишек'}</p><button class="go" id="bk">Ещё раз</button>`;
+}
 function view() {
   if (S.status === 'cancel') return lobby('Дуэль отменена, ставка вернулась.');
   if (S.status === 'wait') {
-    const link = BOT_LINK + '?startapp=duel_' + S.code, canShare = !BOT_LINK.includes('ТВОЙ');
-    $('#v').innerHTML = `<h2>Ждём соперника</h2><p>Ставка ${S.stake}. Код комнаты:</p><div class="code">${S.code}</div>
+    const canShare = !BOT_LINK.includes('ТВОЙ');
+    $('#v').innerHTML = `<h2>Ждём соперника</h2><p>${GAMES[S.game][0]}, ставка ${S.stake}. Код комнаты:</p><div class="code">${S.code}</div>
     ${canShare ? '<button class="go" id="sh">Позвать друга</button>' : '<p>Отправь код другу, пусть введёт его в «Войти».</p>'}
     <button class="go alt" id="cn">Отменить</button>`;
-    $('#v').dataset.link = link;
+    $('#v').dataset.link = BOT_LINK + '?startapp=duel_' + S.code;
+    return;
+  }
+  if (S.game === 'bj') {
+    const done = S.status === 'done', opp = S.players.find(p => p.id !== me.id), mine = S.hands[me.id];
+    const line = (p, h) => `<p class="who">${p.id === me.id ? 'Ты' : esc(p.name)}${done || p.id === me.id ? ': ' + val(h) + (val(h) > 21 ? ' (перебор)' : '') : ''}</p>${hand(h)}`;
+    const turn = !done && S.players[S.turn].id === me.id;
+    $('#v').innerHTML = line(opp, S.hands[opp.id]) + line(me && S.players.find(p => p.id === me.id), mine) +
+      (done ? resultHtml() : turn ? '<div class="row2"><button class="go" data-a="hit">Ещё</button><button class="go alt" data-a="stand">Хватит</button></div><p class="who">Твой ход, на него 60 секунд</p>' : '<p>Ход соперника…</p>');
     return;
   }
   $('#v').innerHTML = '<h2>Бросаем…</h2><div class="dice"><div class="spin">🎲</div><div class="spin">🎲</div></div>';
   setTimeout(() => {
-    const won = S.winner === me.id, tie = S.winner === 'tie';
-    $('#v').innerHTML = `<div class="dice">${S.players.map(p => { const r = S.rolls[p.id]; return `<div>${FACE[r[0] - 1]}${FACE[r[1] - 1]}<small>${esc(p.name)}: ${r[0] + r[1]}</small></div>`; }).join('')}</div>
-    <p class="res ${won ? 'win' : ''}">${tie ? 'Ничья, ставки вернулись' : won ? '+' + S.stake + ' фишек' : '−' + S.stake + ' фишек'}</p><button class="go" id="bk">Ещё раз</button>`;
-    try { tg.HapticFeedback.notificationOccurred(tie ? 'warning' : won ? 'success' : 'error'); } catch (e) {}
+    $('#v').innerHTML = `<div class="dice">${S.players.map(p => { const r = S.rolls[p.id]; return `<div>${FACE[r[0] - 1]}${FACE[r[1] - 1]}<small>${esc(p.name)}: ${r[0] + r[1]}</small></div>`; }).join('')}</div>` + resultHtml();
   }, 900);
 }
 $('#v').onclick = async e => {
-  const b = e.target.closest('button'); if (!b) return;
+  const b = e.target.closest('button'); if (!b || b.disabled) return;
+  if (b.dataset.a) return ws && ws.send(JSON.stringify({ t: b.dataset.a }));
+  if (b.dataset.g) { game = b.dataset.g; return lobby(); }
   if (b.dataset.s) { stake = Number(b.dataset.s); return lobby(); }
   if (b.id === 'mk') return connect(newCode(), stake);
   if (b.id === 'jn') { const c = $('#code').value.trim().toUpperCase(); return /^[A-HJ-NP-Z2-9]{5}$/.test(c) ? connect(c, null) : ($('#err').textContent = 'Код из 5 символов'); }
   if (b.id === 'cn') return ws.send(JSON.stringify({ t: 'cancel' }));
   if (b.id === 'bk') return lobby();
   if (b.id === 'bn') { try { const r = await api('/api/bonus', { method: 'POST' }); me = r; $('#bal').textContent = r.balance.toLocaleString('ru-RU'); lobby(r.ok ? 'Бонус получен' : ''); } catch (x) { lobby('Не вышло'); } return; }
-  if (b.id === 'sh') tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent($('#v').dataset.link) + '&text=' + encodeURIComponent('Сыграем в дуэль на ' + S.stake + ' фишек?'));
+  if (b.id === 'sh') tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent($('#v').dataset.link) + '&text=' + encodeURIComponent('Сыграем на ' + S.stake + ' фишек?'));
 };
 const newCode = () => Array.from(crypto.getRandomValues(new Uint8Array(5)), b => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('');
 (async () => {
