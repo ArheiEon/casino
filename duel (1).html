@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Онлайн-дуэль</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--felt:#0f4d3a;--deep:#0a3328;--brass:#d9a441;--cream:#f3ead3;--ruby:#b3262e;--ink:#14110d}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;color:var(--cream);font:16px/1.4 "Trebuchet MS",system-ui,sans-serif}
+body{min-height:100vh;background:radial-gradient(ellipse at 50% 0,#17604a,var(--deep) 70%) fixed;padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px));max-width:480px;margin:0 auto}
+button{font:inherit;color:inherit;cursor:pointer;border:0}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+header{display:flex;align-items:center;justify-content:space-between}
+header a{color:var(--cream);text-decoration:none;font-weight:700}
+.bank{display:flex;align-items:center;gap:8px;background:var(--ink);border-radius:999px;padding:4px 16px 4px 4px;box-shadow:0 0 0 2px var(--brass)}
+.chip{width:34px;height:34px;border-radius:50%;background:var(--ruby);border:3px dashed var(--cream);box-shadow:inset 0 0 0 3px var(--ruby)}
+#bal{font-size:22px;font-weight:800;color:var(--brass)}
+.table{background:radial-gradient(ellipse at 50% 30%,#1a6b52,var(--felt) 75%);border-radius:22px;padding:18px 14px;margin:16px 4px 0;box-shadow:0 0 0 3px var(--brass),0 0 0 7px var(--ink),inset 0 0 40px rgba(0,0,0,.4);text-align:center}
+h2{margin:0 0 6px}p{margin:6px 0}
+.bets{display:flex;gap:6px;justify-content:center;margin:12px 0}
+.bets button{background:var(--felt);border-radius:999px;padding:8px 18px;font-weight:700;box-shadow:inset 0 0 0 1px rgba(243,234,211,.25)}
+.bets button[aria-pressed=true]{background:var(--cream);color:var(--ink)}
+.go{display:block;width:100%;margin-top:10px;padding:14px;border-radius:14px;background:linear-gradient(var(--brass),#b8862a);color:var(--ink);font-size:19px;font-weight:800;box-shadow:0 4px 0 #7d5a14}
+.alt{background:var(--felt);color:var(--cream);box-shadow:inset 0 0 0 1px rgba(243,234,211,.25)}
+.join{display:flex;gap:6px;margin-top:14px}
+.join input{flex:1;min-width:0;border-radius:12px;border:2px solid var(--brass);background:var(--ink);color:var(--cream);padding:10px;font:inherit;text-align:center;text-transform:uppercase;letter-spacing:.2em}
+.join button{padding:10px 18px;border-radius:12px;background:var(--cream);color:var(--ink);font-weight:800}
+.code{font-size:44px;font-weight:800;letter-spacing:.15em;color:var(--brass)}
+.err{min-height:24px;color:#ffb4a8;font-weight:700}
+.dice{display:flex;justify-content:space-around;margin:12px 0}
+.dice div{font-size:48px;line-height:1.1}.dice small{display:block;font-size:14px;opacity:.85}
+.res{font-size:24px;font-weight:800}.win{color:var(--brass)}
+.spin{animation:s .25s infinite}@keyframes s{50%{transform:rotate(12deg)}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<header><a href="./">← Казино</a><div class="bank"><div class="chip"></div><span id="bal">…</span></div></header>
+<main class="table" id="v"></main>
+<script>
+// ВПИШИ СВОИ ЗНАЧЕНИЯ после развёртывания сервера:
+const API = 'https://casino-online.arheieoncasino.workers.dev';              // адрес Worker, который покажет wrangler deploy
+const BOT_LINK = 'https://t.me/ТВОЙ_БОТ/НАЗВАНИЕ';          // ссылка на мини-приложение для приглашений (необязательно)
+
+const tg = window.Telegram && Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+const $ = s => document.querySelector(s);
+const FACE = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+let me = null, ws = null, S = null, stake = 100;
+const api = (p, o = {}) => fetch(API + p, { ...o, headers: { Authorization: 'tma ' + tg.initData } }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+async function refresh() { me = await api('/api/me'); $('#bal').textContent = me.balance.toLocaleString('ru-RU'); }
+
+function lobby(msg = '') {
+  if (ws) { ws.onclose = null; ws.close(); ws = null; }
+  S = null;
+  $('#v').innerHTML = `<h2>⚔️ Дуэль</h2><p>Двое ставят поровну, сервер бросает каждому по два кубика. У кого больше, тот забирает всё.</p>
+  <div class="bets">${[50, 100, 500].map(v => `<button data-s="${v}" aria-pressed="${v === stake}">${v}</button>`).join('')}</div>
+  <button class="go" id="mk">Создать дуэль</button>
+  <div class="join"><input id="code" placeholder="КОД" maxlength="5" aria-label="Код комнаты"><button id="jn">Войти</button></div>
+  <p class="err" id="err">${esc(msg)}</p>
+  ${me && (me.bonusReady || me.balance < 10) ? '<button class="go alt" id="bn">Бонус +500 фишек</button>' : ''}`;
+}
+function connect(code, st) {
+  ws = new WebSocket(API.replace('https', 'wss') + '/ws/' + code + '?auth=' + encodeURIComponent(tg.initData));
+  ws.onopen = () => ws.send(JSON.stringify({ t: 'enter', stake: st }));
+  ws.onmessage = async e => {
+    const m = JSON.parse(e.data);
+    if (m.t === 'err') return lobby(m.m);
+    S = m.s;
+    if (S.status !== 'wait') await refresh();
+    view();
+  };
+  ws.onerror = () => lobby('Нет связи с сервером');
+}
+function view() {
+  if (S.status === 'cancel') return lobby('Дуэль отменена, ставка вернулась.');
+  if (S.status === 'wait') {
+    const link = BOT_LINK + '?startapp=duel_' + S.code, canShare = !BOT_LINK.includes('ТВОЙ');
+    $('#v').innerHTML = `<h2>Ждём соперника</h2><p>Ставка ${S.stake}. Код комнаты:</p><div class="code">${S.code}</div>
+    ${canShare ? '<button class="go" id="sh">Позвать друга</button>' : '<p>Отправь код другу, пусть введёт его в «Войти».</p>'}
+    <button class="go alt" id="cn">Отменить</button>`;
+    $('#v').dataset.link = link;
+    return;
+  }
+  $('#v').innerHTML = '<h2>Бросаем…</h2><div class="dice"><div class="spin">🎲</div><div class="spin">🎲</div></div>';
+  setTimeout(() => {
+    const won = S.winner === me.id, tie = S.winner === 'tie';
+    $('#v').innerHTML = `<div class="dice">${S.players.map(p => { const r = S.rolls[p.id]; return `<div>${FACE[r[0] - 1]}${FACE[r[1] - 1]}<small>${esc(p.name)}: ${r[0] + r[1]}</small></div>`; }).join('')}</div>
+    <p class="res ${won ? 'win' : ''}">${tie ? 'Ничья, ставки вернулись' : won ? '+' + S.stake + ' фишек' : '−' + S.stake + ' фишек'}</p><button class="go" id="bk">Ещё раз</button>`;
+    try { tg.HapticFeedback.notificationOccurred(tie ? 'warning' : won ? 'success' : 'error'); } catch (e) {}
+  }, 900);
+}
+$('#v').onclick = async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.s) { stake = Number(b.dataset.s); return lobby(); }
+  if (b.id === 'mk') return connect(newCode(), stake);
+  if (b.id === 'jn') { const c = $('#code').value.trim().toUpperCase(); return /^[A-HJ-NP-Z2-9]{5}$/.test(c) ? connect(c, null) : ($('#err').textContent = 'Код из 5 символов'); }
+  if (b.id === 'cn') return ws.send(JSON.stringify({ t: 'cancel' }));
+  if (b.id === 'bk') return lobby();
+  if (b.id === 'bn') { try { const r = await api('/api/bonus', { method: 'POST' }); me = r; $('#bal').textContent = r.balance.toLocaleString('ru-RU'); lobby(r.ok ? 'Бонус получен' : ''); } catch (x) { lobby('Не вышло'); } return; }
+  if (b.id === 'sh') tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent($('#v').dataset.link) + '&text=' + encodeURIComponent('Сыграем в дуэль на ' + S.stake + ' фишек?'));
+};
+const newCode = () => Array.from(crypto.getRandomValues(new Uint8Array(5)), b => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('');
+(async () => {
+  if (!tg || !tg.initData) { $('#v').innerHTML = '<p>Открой эту страницу через Telegram, по кнопке бота.</p>'; return; }
+  try { await refresh(); } catch (e) { $('#v').innerHTML = '<p>Сервер недоступен. Проверь адрес API в начале файла.</p>'; return; }
+  const room = new URLSearchParams(location.search).get('room');
+  room && /^[A-HJ-NP-Z2-9]{5}$/i.test(room) ? connect(room.toUpperCase(), null) : lobby();
+})();
+</script>
+</body>
+</html>

@@ -7,38 +7,59 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 :root{--felt:#0f4d3a;--deep:#0a3328;--brass:#d9a441;--cream:#f3ead3;--ruby:#b3262e;--ink:#14110d}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;background:var(--deep);color:var(--cream);font:16px/1.4 "Trebuchet MS",system-ui,sans-serif}
-body{min-height:100vh;padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px));max-width:480px;margin:0 auto}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html,body{margin:0;color:var(--cream);font:16px/1.4 "Trebuchet MS",system-ui,sans-serif}
+body{min-height:100vh;background:radial-gradient(ellipse at 50% 0,#17604a,var(--deep) 70%) fixed;padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px));max-width:480px;margin:0 auto;overflow-x:hidden}
 button{font:inherit;color:inherit;cursor:pointer;border:0}
 button:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
 header{display:flex;align-items:center;justify-content:space-between;gap:10px}
-header b{font-size:15px;font-weight:600;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bank{display:flex;align-items:center;gap:8px;background:var(--ink);border-radius:999px;padding:4px 16px 4px 4px}
+header b{font-size:14px;font-weight:600;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.04em;text-transform:uppercase}
+.bank{display:flex;align-items:center;gap:8px;background:var(--ink);border-radius:999px;padding:4px 16px 4px 4px;box-shadow:0 0 0 2px var(--brass)}
 .chip{width:34px;height:34px;border-radius:50%;background:var(--ruby);border:3px dashed var(--cream);box-shadow:inset 0 0 0 3px var(--ruby)}
 #bal{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--brass)}
-nav{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:14px 0}
-nav button{background:var(--felt);border-radius:10px;padding:9px 2px;font-size:14px;font-weight:600}
-nav button[aria-pressed=true]{background:var(--brass);color:var(--ink)}
-.table{background:var(--felt);border:3px solid var(--brass);border-radius:18px;padding:18px 12px;min-height:170px;display:flex;align-items:center;justify-content:center;gap:10px}
-.reel{width:30%;max-width:104px;aspect-ratio:3/4;background:var(--cream);color:var(--ink);border-radius:10px;display:grid;place-items:center;font-size:46px;box-shadow:inset 0 6px 10px rgba(0,0,0,.25)}
+nav{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:14px 0}
+nav button{background:rgba(15,77,58,.9);border-radius:12px;padding:8px 2px;font-size:13px;font-weight:700;display:grid;gap:2px;box-shadow:inset 0 0 0 1px rgba(243,234,211,.15)}
+nav button i{font-style:normal;font-size:22px}
+nav button[aria-pressed=true]{background:linear-gradient(var(--brass),#b8862a);color:var(--ink)}
+.table{background:radial-gradient(ellipse at 50% 30%,#1a6b52,var(--felt) 75%);border-radius:22px;padding:18px 12px;min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;box-shadow:0 0 0 3px var(--brass),0 0 0 7px var(--ink),inset 0 0 40px rgba(0,0,0,.4);margin:0 4px}
+.row{display:flex;gap:10px;justify-content:center;width:100%}
+.reel{width:30%;max-width:104px;aspect-ratio:3/4;background:linear-gradient(var(--cream),#e3d6b4);color:var(--ink);border-radius:10px;display:grid;place-items:center;font-size:46px;box-shadow:inset 0 6px 10px rgba(0,0,0,.25)}
+.reel.spin{animation:spin .12s linear infinite;filter:blur(1.5px)}
+@keyframes spin{50%{transform:translateY(5px)}}
 .stop{animation:thud .2s}
-@keyframes thud{50%{transform:translateY(5px)}}
+@keyframes thud{50%{transform:translateY(6px)}}
+.win{box-shadow:0 0 0 3px var(--brass),0 0 24px var(--brass)}
 .wheel{width:132px;height:132px;border-radius:50%;display:grid;place-items:center;font-size:52px;font-weight:800;border:6px solid var(--brass);background:var(--ink);color:var(--cream)}
 .wheel.red{background:var(--ruby)}.wheel.green{background:#1d7a4f}
-.coin{width:120px;height:120px;border-radius:50%;display:grid;place-items:center;font-size:56px;font-weight:800;background:var(--brass);color:var(--ink);border:6px double var(--ink)}
+.coin{width:120px;height:120px;border-radius:50%;display:grid;place-items:center;font-size:56px;font-weight:800;background:radial-gradient(#f0c766,var(--brass));color:var(--ink);border:6px double var(--ink)}
+.flip{animation:flip .9s ease-in-out}
+@keyframes flip{to{transform:rotateY(1260deg)}}
 .die{width:84px;height:84px;display:grid;place-items:center;font-size:76px;line-height:1;background:var(--cream);color:var(--ink);border-radius:14px}
-.opts,.bets{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 0}
-.opts button,.bets button{background:var(--felt);border-radius:999px;padding:8px 14px;font-weight:600}
+.shake{animation:shake .3s infinite}
+@keyframes shake{25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
+.hand{display:flex;gap:6px;min-height:62px;justify-content:center;flex-wrap:wrap}
+.card{width:44px;height:62px;border-radius:6px;background:var(--cream);color:var(--ink);display:grid;place-items:center;font-weight:800;font-size:18px;box-shadow:0 2px 4px rgba(0,0,0,.4)}
+.card.r{color:var(--ruby)}.card.back{background:repeating-linear-gradient(45deg,var(--ruby) 0 5px,#8c1a21 5px 10px);border:2px solid var(--cream)}
+.who{font-size:14px;opacity:.85}
+#mult{font-size:48px;font-weight:800;color:var(--brass);font-variant-numeric:tabular-nums}
+#rk{font-size:56px;transition:transform .1s}
+.opts,.bets{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.opts button,.bets button{background:var(--felt);border-radius:999px;padding:8px 14px;font-weight:700}
 .opts button[aria-pressed=true],.bets button[aria-pressed=true]{background:var(--cream);color:var(--ink)}
+.opts button[data-a]{background:var(--brass);color:var(--ink);flex:1;padding:12px}
 .opts input{width:64px;border-radius:999px;border:2px solid var(--brass);background:var(--ink);color:var(--cream);padding:6px 10px;font:inherit;text-align:center}
 .bets{align-items:center}.bets span{opacity:.75;font-size:14px;margin-right:2px}
-#go{display:block;width:100%;margin-top:16px;padding:15px;border-radius:14px;background:var(--brass);color:var(--ink);font-size:20px;font-weight:800}
+#go{display:block;width:100%;margin-top:16px;padding:15px;border-radius:14px;background:linear-gradient(var(--brass),#b8862a);color:var(--ink);font-size:20px;font-weight:800;box-shadow:0 4px 0 #7d5a14}
+#go:active{transform:translateY(3px);box-shadow:0 1px 0 #7d5a14}
 #go:disabled{opacity:.5}
-#msg{min-height:28px;margin:12px 0 0;text-align:center;font-size:18px;font-weight:600}
+#msg{min-height:30px;margin:12px 0 0;text-align:center;font-size:20px;font-weight:700}
+#msg.w{color:var(--brass)}
+#online{display:block;margin-top:10px;padding:12px;border-radius:12px;background:var(--felt);color:var(--cream);text-align:center;font-weight:700;text-decoration:none;box-shadow:inset 0 0 0 1px rgba(243,234,211,.25)}
 #gift{display:none;width:100%;margin-top:8px;padding:12px;border-radius:12px;background:var(--cream);color:var(--ink);font-weight:700}
-small{display:block;margin-top:18px;text-align:center;opacity:.55;font-size:12px}
-@media(prefers-reduced-motion:reduce){.stop{animation:none}}
+small{display:block;margin-top:16px;text-align:center;opacity:.6;font-size:12px}
+.fx{position:fixed;top:-30px;font-size:26px;pointer-events:none;animation:fall 1.5s ease-in forwards;z-index:9}
+@keyframes fall{to{transform:translateY(110vh) rotate(400deg);opacity:.3}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 </head>
 <body>
@@ -47,50 +68,72 @@ small{display:block;margin-top:18px;text-align:center;opacity:.55;font-size:12px
 <div class="table" id="stage"></div>
 <div class="opts" id="opts"></div>
 <div class="bets" id="bets"></div>
-<button id="go">Крутить</button>
+<button id="go">Играть</button>
 <p id="msg"></p>
-<button id="gift">Взять подарок: 500 фишек</button>
+<button id="gift"></button>
+<a id="online" href="duel.html">⚔️ Онлайн-дуэль с друзьями</a>
+<small id="stats"></small>
 <small>Фишки ненастоящие и ничего не стоят. Играем для удовольствия.</small>
 <script>
 const tg = window.Telegram && Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#0a3328'); tg.setBackgroundColor('#0a3328'); } catch (e) {} }
+const sp = tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param;
+if (sp && sp.startsWith('duel_')) location.replace('duel.html?room=' + sp.slice(5));
 const $ = s => document.querySelector(s);
 const rnd = n => Math.floor(Math.random() * n);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const KEY = 'casino_v1';
-const st = { bal: 1000, bet: 50, game: 'slots' };
-try { const o = JSON.parse(localStorage.getItem(KEY) || '{}'); if (o.bal >= 0) st.bal = o.bal; if (o.bet > 0) st.bet = o.bet; } catch (e) {}
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ bal: st.bal, bet: st.bet })); } catch (e) {} };
+const KEY = 'casino_v1', DAY = 20 * 3600e3;
+const st = { bal: 1000, bet: 50, game: 'slots', best: 0, played: 0, bonusAt: 0 };
+try { const o = JSON.parse(localStorage.getItem(KEY) || '{}'); for (const k of ['bal', 'bet', 'best', 'played', 'bonusAt']) if (typeof o[k] === 'number') st[k] = o[k]; } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ bal: st.bal, bet: st.bet, best: st.best, played: st.played, bonusAt: st.bonusAt })); } catch (e) {} };
 const buzz = t => { try { tg.HapticFeedback.notificationOccurred(t); } catch (e) {} };
 const bump = () => { try { tg.HapticFeedback.impactOccurred('light'); } catch (e) {} };
 const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
 if (user) $('#who').textContent = user.first_name;
+const fmt = n => n.toLocaleString('ru-RU');
+let busy = false, pending = null;
+
+function burst(n) {
+  for (let i = 0; i < n; i++) {
+    const s = document.createElement('span');
+    s.className = 'fx'; s.textContent = '🪙';
+    s.style.left = rnd(95) + 'vw'; s.style.animationDelay = (Math.random() * .5) + 's';
+    document.body.appendChild(s); setTimeout(() => s.remove(), 2200);
+  }
+}
+const choose = html => new Promise(res => { $('#opts').innerHTML = html; pending = res; });
 
 const SYM = ['🍒', '🍋', '🔔', '⭐', '💎', '7️⃣'], PAY = [8, 8, 12, 16, 25, 40];
 const RED = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
 const FACE = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 const pick = { roulette: 'red', coin: 'o', dice: 'hi' };
+const val = h => { let s = h.reduce((a, c) => a + Math.min(c[0], 10), 0), a = h.filter(c => c[0] === 1).length; while (a-- > 0 && s + 10 <= 21) s += 10; return s; };
+const lbl = r => ({ 1: 'A', 11: 'J', 12: 'Q', 13: 'K' }[r] || r);
+const card = (c, back) => back ? '<span class="card back"></span>' : `<span class="card ${c[1] === '♥' || c[1] === '♦' ? 'r' : ''}">${lbl(c[0])}${c[1]}</span>`;
 
 const GAMES = {
   slots: {
-    name: 'Слоты', opts: null,
-    view: () => '<div class="reel">🍒</div><div class="reel">🍋</div><div class="reel">🔔</div>',
+    name: 'Слоты', ico: '🎰', opts: null,
+    view: () => '<div class="row"><div class="reel">🍒</div><div class="reel">🍋</div><div class="reel">🔔</div></div>',
     async run(b) {
       const r = [rnd(6), rnd(6), rnd(6)], els = [...document.querySelectorAll('.reel')];
+      els.forEach(e => e.classList.remove('win'));
       await Promise.all(els.map((el, i) => new Promise(res => {
-        let n = 0;
+        let n = 0; el.classList.add('spin');
         const t = setInterval(() => {
           el.textContent = SYM[rnd(6)];
-          if (++n >= 10 + i * 6) { clearInterval(t); el.textContent = SYM[r[i]]; el.classList.add('stop'); bump(); setTimeout(() => el.classList.remove('stop'), 220); res(); }
+          if (++n >= 10 + i * 6) { clearInterval(t); el.classList.remove('spin'); el.textContent = SYM[r[i]]; el.classList.add('stop'); bump(); setTimeout(() => el.classList.remove('stop'), 220); res(); }
         }, 70);
       })));
-      if (r[0] === r[1] && r[1] === r[2]) return b * PAY[r[0]];
-      if (r[0] === r[1] || r[1] === r[2] || r[0] === r[2]) return b;
-      return 0;
+      let w = 0;
+      if (r[0] === r[1] && r[1] === r[2]) w = b * PAY[r[0]];
+      else if (r[0] === r[1] || r[1] === r[2] || r[0] === r[2]) w = b;
+      if (w > b) els.forEach(e => e.classList.add('win'));
+      return w;
     }
   },
   roulette: {
-    name: 'Рулетка',
+    name: 'Рулетка', ico: '🎡',
     opts: [['red', 'Красное ×2'], ['black', 'Чёрное ×2'], ['even', 'Чёт ×2'], ['odd', 'Нечет ×2'], ['zero', 'Зеро ×36'], ['num', 'Число ×36']],
     view: () => '<div class="wheel green" id="wheel">0</div>',
     async run(b) {
@@ -109,64 +152,120 @@ const GAMES = {
     }
   },
   coin: {
-    name: 'Монетка',
+    name: 'Монетка', ico: '🪙',
     opts: [['o', 'Орёл'], ['r', 'Решка']],
     view: () => '<div class="coin" id="coin">О</div>',
     async run(b) {
       const res = rnd(2) ? 'o' : 'r', c = $('#coin');
-      for (let k = 0; k < 12; k++) { c.textContent = k % 2 ? 'О' : 'Р'; await sleep(90); }
+      c.classList.remove('flip'); void c.offsetWidth; c.classList.add('flip');
+      for (let k = 0; k < 10; k++) { c.textContent = k % 2 ? 'О' : 'Р'; await sleep(90); }
       c.textContent = res === 'o' ? 'О' : 'Р'; bump();
       return pick.coin === res ? Math.floor(b * 1.95) : 0;
     }
   },
   dice: {
-    name: 'Кости',
+    name: 'Кости', ico: '🎲',
     opts: [['hi', 'Больше 7 ×2.2'], ['lo', 'Меньше 7 ×2.2'], ['sev', 'Ровно 7 ×5.5']],
-    view: () => '<div class="die" id="d1">⚀</div><div class="die" id="d2">⚀</div>',
+    view: () => '<div class="row"><div class="die" id="d1">⚀</div><div class="die" id="d2">⚀</div></div>',
     async run(b) {
-      const a = rnd(6), c = rnd(6), sum = a + c + 2;
-      for (let k = 0; k < 12; k++) { $('#d1').textContent = FACE[rnd(6)]; $('#d2').textContent = FACE[rnd(6)]; await sleep(80); }
-      $('#d1').textContent = FACE[a]; $('#d2').textContent = FACE[c]; bump();
+      const a = rnd(6), c = rnd(6), sum = a + c + 2, ds = [$('#d1'), $('#d2')];
+      ds.forEach(d => d.classList.add('shake'));
+      for (let k = 0; k < 12; k++) { ds[0].textContent = FACE[rnd(6)]; ds[1].textContent = FACE[rnd(6)]; await sleep(80); }
+      ds.forEach(d => d.classList.remove('shake'));
+      ds[0].textContent = FACE[a]; ds[1].textContent = FACE[c]; bump();
       const p = pick.dice;
       if (p === 'hi' && sum > 7) return Math.floor(b * 2.2);
       if (p === 'lo' && sum < 7) return Math.floor(b * 2.2);
       if (p === 'sev' && sum === 7) return Math.floor(b * 5.5);
       return 0;
     }
+  },
+  bj: {
+    name: 'Блэкджек', ico: '🃏', opts: null,
+    view: () => '<div id="bj" style="text-align:center;width:100%"><div class="who">Нажми «Играть», чтобы раздать карты</div></div>',
+    async run(b) {
+      const d = []; for (const s of '♠♥♦♣') for (let r = 1; r <= 13; r++) d.push([r, s]);
+      for (let i = d.length - 1; i > 0; i--) { const j = rnd(i + 1); [d[i], d[j]] = [d[j], d[i]]; }
+      const P = [d.pop(), d.pop()], D = [d.pop(), d.pop()]; let bet = b, hide = true;
+      const paint = () => { $('#bj').innerHTML = `<div class="who">Дилер ${hide ? '' : val(D)}</div><div class="hand">${D.map((c, i) => card(c, hide && i === 1)).join('')}</div><div class="who">Ты ${val(P)}</div><div class="hand">${P.map(c => card(c)).join('')}</div>`; };
+      paint(); bump();
+      if (val(P) === 21) { hide = false; paint(); return val(D) === 21 ? b : Math.floor(b * 2.5); }
+      let first = true;
+      for (;;) {
+        const a = await choose('<button data-a="hit">Ещё</button><button data-a="stand">Хватит</button>' + (first && st.bal >= b ? '<button data-a="dbl">×2</button>' : ''));
+        if (a === 'hit') { P.push(d.pop()); first = false; bump(); paint(); if (val(P) >= 21) break; }
+        else if (a === 'dbl') { st.bal -= b; bet += b; draw(); P.push(d.pop()); paint(); break; }
+        else break;
+      }
+      hide = false; $('#opts').innerHTML = '';
+      if (val(P) > 21) { paint(); return 0; }
+      while (val(D) < 17) { D.push(d.pop()); }
+      paint();
+      const p = val(P), q = val(D);
+      return q > 21 || p > q ? bet * 2 : p === q ? bet : 0;
+    }
+  },
+  crash: {
+    name: 'Ракета', ico: '🚀', opts: null,
+    view: () => '<div id="rk">🚀</div><div id="mult">1.00×</div><div class="who">Забери выигрыш до взрыва</div>',
+    run(b) {
+      const cp = Math.min(200, Math.max(1, Math.floor(96 / (1 - Math.random())) / 100));
+      const t0 = Date.now(), cur = () => Math.floor(Math.exp(0.0000866 * (Date.now() - t0)) * 100) / 100;
+      return new Promise(res => {
+        let over = false;
+        const end = w => { if (over) return; over = true; clearInterval(t); $('#opts').innerHTML = ''; res(w); };
+        choose('<button data-a="cash">Забрать</button>').then(() => { const m = cur(); if (m < cp) { $('#mult').textContent = m.toFixed(2) + '× ✓'; end(Math.floor(b * m)); } });
+        const t = setInterval(() => {
+          const m = cur();
+          if (m >= cp) { $('#mult').textContent = cp.toFixed(2) + '× 💥'; $('#rk').textContent = '💥'; buzz('error'); end(0); }
+          else { $('#mult').textContent = m.toFixed(2) + '×'; $('#rk').style.transform = `translateY(${-Math.min(m * 6, 40)}px)`; }
+        }, 50);
+      });
+    }
   }
 };
 
-let busy = false;
-const fmt = n => n.toLocaleString('ru-RU');
 function draw() {
+  const ready = Date.now() - st.bonusAt > DAY;
   $('#bal').textContent = fmt(st.bal);
-  $('#gift').style.display = st.bal < 10 ? 'block' : 'none';
+  const g = $('#gift'); g.style.display = (st.bal < 10 || ready) ? 'block' : 'none';
+  g.textContent = ready ? 'Ежедневный бонус: +500 фишек' : 'Взять подарок: 500 фишек';
   $('#bets').innerHTML = '<span>Ставка</span>' + [10, 50, 100, 500].map(v => `<button data-bet="${v}" aria-pressed="${st.bet === v}">${v}</button>`).join('') + `<button data-bet="all" aria-pressed="${st.bet === -1}">Всё</button>`;
   $('#go').disabled = busy;
+  $('#stats').textContent = `Игр сыграно: ${st.played} · Лучший выигрыш: ${fmt(st.best)}`;
+}
+function renderOpts() {
+  const g = st.game, G = GAMES[g];
+  $('#opts').innerHTML = G.opts ? G.opts.map(([k, l]) => `<button data-o="${k}" aria-pressed="${pick[g] === k}">${l}</button>`).join('') + (g === 'roulette' ? '<input id="num" type="number" min="0" max="36" value="7" aria-label="Число от 0 до 36">' : '') : '';
 }
 function show(g) {
   if (busy) return;
-  st.game = g; const G = GAMES[g];
-  $('#tabs').innerHTML = Object.keys(GAMES).map(k => `<button data-g="${k}" aria-pressed="${k === g}">${GAMES[k].name}</button>`).join('');
-  $('#stage').innerHTML = G.view();
-  $('#opts').innerHTML = G.opts ? G.opts.map(([k, l]) => `<button data-o="${k}" aria-pressed="${pick[g] === k}">${l}</button>`).join('') + (g === 'roulette' ? '<input id="num" type="number" min="0" max="36" value="7" aria-label="Число от 0 до 36">' : '') : '';
-  $('#msg').textContent = '';
-  draw();
+  st.game = g;
+  $('#tabs').innerHTML = Object.keys(GAMES).map(k => `<button data-g="${k}" aria-pressed="${k === g}"><i>${GAMES[k].ico}</i>${GAMES[k].name}</button>`).join('');
+  $('#stage').innerHTML = GAMES[g].view();
+  renderOpts(); $('#msg').textContent = ''; $('#msg').className = ''; draw();
 }
 $('#tabs').onclick = e => { const b = e.target.closest('[data-g]'); if (b) show(b.dataset.g); };
-$('#opts').onclick = e => { const b = e.target.closest('[data-o]'); if (!b || busy) return; pick[st.game] = b.dataset.o; show(st.game); };
+$('#opts').onclick = e => {
+  const a = e.target.closest('[data-a]');
+  if (a && pending) { const p = pending; pending = null; p(a.dataset.a); return; }
+  const b = e.target.closest('[data-o]'); if (!b || busy) return;
+  pick[st.game] = b.dataset.o; const n = $('#num') && $('#num').value; renderOpts(); if (n) $('#num').value = n;
+};
 $('#bets').onclick = e => { const b = e.target.closest('[data-bet]'); if (!b || busy) return; st.bet = b.dataset.bet === 'all' ? -1 : Number(b.dataset.bet); save(); draw(); };
-$('#gift').onclick = () => { st.bal += 500; save(); draw(); $('#msg').textContent = 'Держи 500 фишек'; buzz('success'); };
+$('#gift').onclick = () => { if (Date.now() - st.bonusAt > DAY) st.bonusAt = Date.now(); st.bal += 500; save(); draw(); $('#msg').textContent = 'Держи 500 фишек'; $('#msg').className = 'w'; buzz('success'); burst(12); };
 $('#go').onclick = async () => {
   if (busy) return;
   const b = st.bet === -1 ? st.bal : Math.min(st.bet, st.bal);
   if (b <= 0) { $('#msg').textContent = 'Фишки закончились. Возьми подарок.'; return; }
-  busy = true; st.bal -= b; $('#msg').textContent = ''; draw();
+  busy = true; st.bal -= b; $('#msg').textContent = ''; $('#msg').className = ''; draw();
   let win = 0;
   try { win = await GAMES[st.game].run(b); } catch (e) { win = b; }
-  st.bal += win; busy = false; save(); draw();
-  if (win > b) { $('#msg').textContent = '+' + fmt(win - b) + ' фишек'; buzz('success'); }
-  else if (win === b) { $('#msg').textContent = 'Ставка вернулась'; buzz('warning'); }
+  st.bal += win; st.played++; busy = false; pending = null; renderOpts();
+  const net = win - b; if (net > st.best) st.best = net;
+  save(); draw();
+  if (net > 0) { $('#msg').textContent = '+' + fmt(net) + ' фишек'; $('#msg').className = 'w'; buzz('success'); burst(net >= b * 5 ? 40 : 14); }
+  else if (net === 0) { $('#msg').textContent = 'Ставка вернулась'; buzz('warning'); }
   else { $('#msg').textContent = '−' + fmt(b) + ' фишек'; buzz('error'); }
 };
 show('slots');
