@@ -50,14 +50,15 @@ h2{margin:0 0 6px}p{margin:6px 0}
 <main class="table" id="v"></main>
 <script>
 const API = 'https://casino-online.arheieoncasino.workers.dev';
-const BOT_LINK = 'https://t.me/ТВОЙ_БОТ/НАЗВАНИЕ';          // ссылка на мини-приложение для приглашений (необязательно)
+const BOT_USERNAME = 'arhei_demo_bot';   // юзернейм бота без @
+const APP_SHORT = 't.me/arhei_demo_bot/casino';                    // короткое имя мини-приложения из BotFather (/newapp), например 'casino'. Пусто = приглашения только по коду
 
 const tg = window.Telegram && Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 const $ = s => document.querySelector(s);
 const FACE = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 const GAMES = { dice: ['🎲 Кости', 'Сервер бросает каждому по два кубика. У кого больше, тот забирает всё.'], bj: ['🃏 Блэкджек', 'Каждому по две карты. Бери карты, чтобы набрать ближе к 21, но не больше. Вторая карта соперника скрыта до конца. У кого ближе к 21, тот забирает всё.'] };
-let me = null, ws = null, S = null, stake = 100, game = 'dice';
+let me = null, ws = null, S = null, stake = 100, game = 'dice', shown = '';
 const api = (p, o = {}) => fetch(API + p, { ...o, headers: { Authorization: 'tma ' + tg.initData } }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 async function refresh() { me = await api('/api/me'); $('#bal').textContent = me.balance.toLocaleString('ru-RU'); }
@@ -67,7 +68,7 @@ const val = h => { let s = h.reduce((a, c) => a + Math.min(c[0], 10), 0), a = h.
 
 function lobby(msg = '') {
   if (ws) { ws.onclose = null; ws.onerror = null; ws.close(); ws = null; }
-  S = null;
+  S = null; shown = '';
   $('#v').innerHTML = `<h2>⚔️ Дуэль</h2><div class="bets">${Object.entries(GAMES).map(([k, g]) => `<button data-g="${k}" aria-pressed="${k === game}">${g[0]}</button>`).join('')}<button disabled>♠️ Покер скоро</button></div>
   <p>${GAMES[game][1]}</p>
   <div class="bets">${[50, 100, 500].map(v => `<button data-s="${v}" aria-pressed="${v === stake}">${v}</button>`).join('')}</div>
@@ -88,19 +89,26 @@ function connect(code, st) {
   };
   ws.onerror = () => lobby('Нет связи с сервером');
 }
-function resultHtml() {
-  const won = S.winner === me.id, tie = S.winner === 'tie';
-  try { tg.HapticFeedback.notificationOccurred(tie ? 'warning' : won ? 'success' : 'error'); } catch (e) {}
-  return `<p class="res ${won ? 'win' : ''}">${tie ? 'Ничья, ставки вернулись' : won ? '+' + S.stake + ' фишек' : '−' + S.stake + ' фишек'}</p><button class="go" id="bk">Ещё раз</button>`;
+function resultHtml(fresh) {
+  const won = S.winner === me.id, tie = S.winner === 'tie', opp = S.players.find(p => p.id !== me.id);
+  if (fresh) try { tg.HapticFeedback.notificationOccurred(tie ? 'warning' : won ? 'success' : 'error'); } catch (e) {}
+  const mine = S.rematch && S.rematch[me.id], theirs = S.rematch && S.rematch[opp.id];
+  return `<p class="res ${won ? 'win' : ''}">${tie ? 'Ничья, ставки вернулись' : won ? '+' + S.stake + ' фишек' : '−' + S.stake + ' фишек'}</p>
+  ${S.note ? `<p class="err">${esc(S.note)}</p>` : ''}
+  ${theirs && !mine ? `<p class="who">${esc(opp.name)} хочет реванш</p>` : ''}
+  ${mine ? '<p>Ждём ответа соперника…</p>' : `<button class="go" data-a="rematch">${theirs ? 'Принять реванш' : 'Реванш'}</button>`}
+  <button class="go alt" id="bk">В лобби</button>`;
 }
 function view() {
+  const key = S.status + JSON.stringify(S.rolls || (S.status === 'done' && S.hands) || 0) + S.winner, fresh = key !== shown;
+  shown = key;
   if (S.status === 'cancel') return lobby('Дуэль отменена, ставка вернулась.');
   if (S.status === 'wait') {
-    const canShare = !BOT_LINK.includes('ТВОЙ');
+    const canShare = APP_SHORT !== '';
     $('#v').innerHTML = `<h2>Ждём соперника</h2><p>${GAMES[S.game][0]}, ставка ${S.stake}. Код комнаты:</p><div class="code">${S.code}</div>
     ${canShare ? '<button class="go" id="sh">Позвать друга</button>' : '<p>Отправь код другу, пусть введёт его в «Войти».</p>'}
     <button class="go alt" id="cn">Отменить</button>`;
-    $('#v').dataset.link = BOT_LINK + '?startapp=duel_' + S.code;
+    $('#v').dataset.link = 'https://t.me/' + BOT_USERNAME + '/' + APP_SHORT + '?startapp=duel_' + S.code;
     return;
   }
   if (S.game === 'bj') {
@@ -108,13 +116,13 @@ function view() {
     const line = (p, h) => `<p class="who">${p.id === me.id ? 'Ты' : esc(p.name)}${done || p.id === me.id ? ': ' + val(h) + (val(h) > 21 ? ' (перебор)' : '') : ''}</p>${hand(h)}`;
     const turn = !done && S.players[S.turn].id === me.id;
     $('#v').innerHTML = line(opp, S.hands[opp.id]) + line(me && S.players.find(p => p.id === me.id), mine) +
-      (done ? resultHtml() : turn ? '<div class="row2"><button class="go" data-a="hit">Ещё</button><button class="go alt" data-a="stand">Хватит</button></div><p class="who">Твой ход, на него 60 секунд</p>' : '<p>Ход соперника…</p>');
+      (done ? resultHtml(fresh) : turn ? '<div class="row2"><button class="go" data-a="hit">Ещё</button><button class="go alt" data-a="stand">Хватит</button></div><p class="who">Твой ход, на него 60 секунд</p>' : '<p>Ход соперника…</p>');
     return;
   }
+  const showDice = () => { $('#v').innerHTML = `<div class="dice">${S.players.map(p => { const r = S.rolls[p.id]; return `<div>${FACE[r[0] - 1]}${FACE[r[1] - 1]}<small>${esc(p.name)}: ${r[0] + r[1]}</small></div>`; }).join('')}</div>` + resultHtml(fresh); };
+  if (!fresh) return showDice();
   $('#v').innerHTML = '<h2>Бросаем…</h2><div class="dice"><div class="spin">🎲</div><div class="spin">🎲</div></div>';
-  setTimeout(() => {
-    $('#v').innerHTML = `<div class="dice">${S.players.map(p => { const r = S.rolls[p.id]; return `<div>${FACE[r[0] - 1]}${FACE[r[1] - 1]}<small>${esc(p.name)}: ${r[0] + r[1]}</small></div>`; }).join('')}</div>` + resultHtml();
-  }, 900);
+  setTimeout(() => { if (S && S.status === 'done' && S.game === 'dice') showDice(); }, 900);
 }
 $('#v').onclick = async e => {
   const b = e.target.closest('button'); if (!b || b.disabled) return;
@@ -138,3 +146,5 @@ const newCode = () => Array.from(crypto.getRandomValues(new Uint8Array(5)), b =>
 </script>
 </body>
 </html>
+
+APP_SHORT
