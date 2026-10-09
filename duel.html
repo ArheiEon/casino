@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>Дуэль</title>
+<title>Игры за столом</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 :root{--felt:#0f4d3a;--deep:#0a3328;--brass:#d9a441;--cream:#f3ead3;--ruby:#b3262e;--ink:#14110d}
@@ -39,6 +39,10 @@ h2{margin:0 0 6px}p{margin:6px 0}
 .hand{display:flex;gap:6px;min-height:62px;justify-content:center;flex-wrap:wrap}
 .card{width:44px;height:62px;border-radius:6px;background:var(--cream);color:var(--ink);display:grid;place-items:center;font-weight:800;font-size:18px;box-shadow:0 2px 4px rgba(0,0,0,.4)}
 .card.r{color:var(--ruby)}.card.back{background:repeating-linear-gradient(45deg,var(--ruby) 0 5px,#8c1a21 5px 10px);border:2px solid var(--cream)}
+.seat{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;justify-content:space-between;padding:6px 10px;border-radius:10px;background:rgba(10,51,40,.55);margin:4px 0;text-align:left;font-size:14px}
+.seat.turn{box-shadow:0 0 0 2px var(--brass)}.seat.fold{opacity:.5}.seat .card{width:30px;height:42px;font-size:13px}.seat small{opacity:.85}
+.pot{font-size:20px;font-weight:800;color:var(--brass);margin-bottom:6px}
+.rz{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:8px}.rz b{min-width:44px;font-size:18px}.rz>button:not(.go){padding:10px 16px;border-radius:12px;font-weight:800;background:var(--felt);box-shadow:inset 0 0 0 1px rgba(243,234,211,.25)}
 .res{font-size:24px;font-weight:800;margin-top:12px}.win{color:var(--brass)}
 .spin{animation:s .25s infinite}@keyframes s{50%{transform:rotate(12deg)}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important}}
@@ -51,14 +55,14 @@ h2{margin:0 0 6px}p{margin:6px 0}
 <script>
 const API = 'https://casino-online.arheieoncasino.workers.dev';
 const BOT_USERNAME = 'arhei_demo_bot';   // юзернейм бота без @
-const APP_SHORT = 't.me/arhei_demo_bot/casino';                    // короткое имя мини-приложения из BotFather (/newapp), например 'casino'. Пусто = приглашения только по коду
+const APP_SHORT = '';                    // короткое имя мини-приложения из BotFather (/newapp), например 'casino'. Пусто = приглашения только по коду
 
 const tg = window.Telegram && Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 const $ = s => document.querySelector(s);
 const FACE = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
-const GAMES = { dice: ['🎲 Кости', 'Сервер бросает каждому по два кубика. У кого больше, тот забирает всё.'], bj: ['🃏 Блэкджек', 'Каждому по две карты. Бери карты, чтобы набрать ближе к 21, но не больше. Вторая карта соперника скрыта до конца. У кого ближе к 21, тот забирает всё.'] };
-let me = null, ws = null, S = null, stake = 100, game = 'dice', shown = '';
+const GAMES = { dice: ['🎲 Кости', 'Сервер бросает каждому по два кубика. У кого больше, тот забирает всё.'], bj: ['🃏 Блэкджек', 'Каждому по две карты. Бери карты, чтобы набрать ближе к 21, но не больше. Вторая карта соперника скрыта до конца. У кого ближе к 21, тот забирает всё.'], poker: ['♠️ Покер', 'Техасский холдем на 2–6 игроков. Вход это твои фишки за столом на одну раздачу, остаток вернётся на баланс. Играть можно дальше, раздача за раздачей.'] };
+let me = null, ws = null, S = null, stake = 100, game = 'dice', shown = '', maxp = 4, raiseTo = 0;
 const api = (p, o = {}) => fetch(API + p, { ...o, headers: { Authorization: 'tma ' + tg.initData } }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 async function refresh() { me = await api('/api/me'); $('#bal').textContent = me.balance.toLocaleString('ru-RU'); }
@@ -69,70 +73,103 @@ const val = h => { let s = h.reduce((a, c) => a + Math.min(c[0], 10), 0), a = h.
 function lobby(msg = '') {
   if (ws) { ws.onclose = null; ws.onerror = null; ws.close(); ws = null; }
   S = null; shown = '';
-  $('#v').innerHTML = `<h2>⚔️ Дуэль</h2><div class="bets">${Object.entries(GAMES).map(([k, g]) => `<button data-g="${k}" aria-pressed="${k === game}">${g[0]}</button>`).join('')}<button disabled>♠️ Покер скоро</button></div>
+  $('#v').innerHTML = `<h2>⚔️ Игры за столом</h2><div class="bets">${Object.entries(GAMES).map(([k, g]) => `<button data-g="${k}" aria-pressed="${k === game}">${g[0]}</button>`).join('')}</div>
   <p>${GAMES[game][1]}</p>
-  <div class="bets">${[50, 100, 500].map(v => `<button data-s="${v}" aria-pressed="${v === stake}">${v}</button>`).join('')}</div>
-  <button class="go" id="mk">Создать дуэль</button>
+  ${game === 'poker' ? `<div class="bets"><span>Игроков</span>${[2, 3, 4, 5, 6].map(v => `<button data-m="${v}" aria-pressed="${v === maxp}">${v}</button>`).join('')}</div>` : ''}
+  <div class="bets"><span>${game === 'poker' ? 'Вход' : 'Ставка'}</span>${[50, 100, 500].map(v => `<button data-s="${v}" aria-pressed="${v === stake}">${v}</button>`).join('')}</div>
+  <button class="go" id="mk">Создать игру</button>
   <div class="join"><input id="code" placeholder="КОД" maxlength="5" aria-label="Код комнаты"><button id="jn">Войти</button></div>
   <p class="err" id="err">${esc(msg)}</p>
   ${me && (me.bonusReady || me.balance < 10) ? '<button class="go alt" id="bn">Бонус +500 фишек</button>' : ''}`;
 }
 function connect(code, st) {
-  ws = new WebSocket(API.replace('https', 'wss') + '/ws/' + code + '?auth=' + encodeURIComponent(tg.initData));
-  ws.onopen = () => ws.send(JSON.stringify({ t: 'enter', stake: st, game }));
-  ws.onmessage = async e => {
+  const sock = ws = new WebSocket(API.replace('https', 'wss') + '/ws/' + code + '?auth=' + encodeURIComponent(tg.initData));
+  sock.onopen = () => sock.send(JSON.stringify({ t: 'enter', stake: st, game, max: maxp }));
+  sock.onmessage = async e => {
+    if (ws !== sock) return;
     const m = JSON.parse(e.data);
     if (m.t === 'err') return lobby(m.m);
     S = m.s; game = S.game;
     if (S.status === 'done' || S.status === 'cancel') await refresh();
-    view();
+    if (ws === sock) view();
   };
-  ws.onerror = () => lobby('Нет связи с сервером');
+  sock.onerror = () => { if (ws === sock) lobby('Нет связи с сервером'); };
 }
-function resultHtml(fresh) {
-  const won = S.winner === me.id, tie = S.winner === 'tie', opp = S.players.find(p => p.id !== me.id);
-  if (fresh) try { tg.HapticFeedback.notificationOccurred(tie ? 'warning' : won ? 'success' : 'error'); } catch (e) {}
-  const mine = S.rematch && S.rematch[me.id], theirs = S.rematch && S.rematch[opp.id];
-  return `<p class="res ${won ? 'win' : ''}">${tie ? 'Ничья, ставки вернулись' : won ? '+' + S.stake + ' фишек' : '−' + S.stake + ' фишек'}</p>
-  ${S.note ? `<p class="err">${esc(S.note)}</p>` : ''}
-  ${theirs && !mine ? `<p class="who">${esc(opp.name)} хочет реванш</p>` : ''}
-  ${mine ? '<p>Ждём ответа соперника…</p>' : `<button class="go" data-a="rematch">${theirs ? 'Принять реванш' : 'Реванш'}</button>`}
+const buzz = t => { try { tg.HapticFeedback.notificationOccurred(t); } catch (e) {} };
+function rematchHtml() {
+  const mine = S.rematch && S.rematch[me.id], want = S.players.filter(p => p.id !== me.id && S.rematch && S.rematch[p.id]);
+  return `${S.note ? `<p class="err">${esc(S.note)}</p>` : ''}${want.length ? `<p class="who">Хотят ещё: ${want.map(p => esc(p.name)).join(', ')}</p>` : ''}
+  ${mine ? '<p>Ждём остальных…</p>' : `<button class="go" data-a="rematch">${S.game === 'poker' ? 'Ещё раздача' : want.length ? 'Принять реванш' : 'Реванш'}</button>`}
   <button class="go alt" id="bk">В лобби</button>`;
 }
-function view() {
-  const key = S.status + JSON.stringify(S.rolls || (S.status === 'done' && S.hands) || 0) + S.winner, fresh = key !== shown;
-  shown = key;
-  if (S.status === 'cancel') return lobby('Дуэль отменена, ставка вернулась.');
-  if (S.status === 'wait') {
-    const canShare = APP_SHORT !== '';
-    $('#v').innerHTML = `<h2>Ждём соперника</h2><p>${GAMES[S.game][0]}, ставка ${S.stake}. Код комнаты:</p><div class="code">${S.code}</div>
-    ${canShare ? '<button class="go" id="sh">Позвать друга</button>' : '<p>Отправь код другу, пусть введёт его в «Войти».</p>'}
-    <button class="go alt" id="cn">Отменить</button>`;
-    $('#v').dataset.link = 'https://t.me/' + BOT_USERNAME + '/' + APP_SHORT + '?startapp=duel_' + S.code;
-    return;
-  }
-  if (S.game === 'bj') {
-    const done = S.status === 'done', opp = S.players.find(p => p.id !== me.id), mine = S.hands[me.id];
-    const line = (p, h) => `<p class="who">${p.id === me.id ? 'Ты' : esc(p.name)}${done || p.id === me.id ? ': ' + val(h) + (val(h) > 21 ? ' (перебор)' : '') : ''}</p>${hand(h)}`;
-    const turn = !done && S.players[S.turn].id === me.id;
-    $('#v').innerHTML = line(opp, S.hands[opp.id]) + line(me && S.players.find(p => p.id === me.id), mine) +
-      (done ? resultHtml(fresh) : turn ? '<div class="row2"><button class="go" data-a="hit">Ещё</button><button class="go alt" data-a="stand">Хватит</button></div><p class="who">Твой ход, на него 60 секунд</p>' : '<p>Ход соперника…</p>');
-    return;
-  }
+function resultHtml(fresh) { // кости и блэкджек
+  const won = S.winner === me.id, tie = S.winner === 'tie';
+  if (fresh) buzz(tie ? 'warning' : won ? 'success' : 'error');
+  return `<p class="res ${won ? 'win' : ''}">${tie ? 'Ничья, ставки вернулись' : won ? '+' + S.stake + ' фишек' : '−' + S.stake + ' фишек'}</p>` + rematchHtml();
+}
+function waitView() {
+  const creator = S.players[0].id === me.id;
+  $('#v').innerHTML = `<h2>Ждём игроков</h2><p>${GAMES[S.game][0]}, ${S.game === 'poker' ? 'вход' : 'ставка'} ${S.stake}. Код комнаты:</p><div class="code">${S.code}</div>
+  <p>Игроки ${S.players.length}/${S.max}: ${S.players.map(p => esc(p.name)).join(', ')}</p>
+  <button class="go" id="sh">Позвать друга</button>
+  ${creator && S.game === 'poker' && S.players.length >= 2 ? '<button class="go" data-a="start">Начать игру</button>' : ''}
+  <button class="go alt" ${creator ? 'id="cn"' : 'data-a="leave"'}>${creator ? 'Отменить' : 'Выйти'}</button>`;
+  $('#v').dataset.link = APP_SHORT ? `https://t.me/${BOT_USERNAME}/${APP_SHORT}?startapp=duel_${S.code}` : `https://t.me/${BOT_USERNAME}?start=duel_${S.code}`;
+}
+function bjView(fresh) {
+  const done = S.status === 'done', opp = S.players.find(p => p.id !== me.id), mp = S.players.find(p => p.id === me.id);
+  const line = (p, h) => `<p class="who">${p.id === me.id ? 'Ты' : esc(p.name)}${done || p.id === me.id ? ': ' + val(h) + (val(h) > 21 ? ' (перебор)' : '') : ''}</p>${hand(h)}`;
+  const turn = !done && S.players[S.turn].id === me.id;
+  $('#v').innerHTML = line(opp, S.hands[opp.id]) + line(mp, S.hands[me.id]) +
+    (done ? resultHtml(fresh) : turn ? '<div class="row2"><button class="go" data-a="hit">Ещё</button><button class="go alt" data-a="stand">Хватит</button></div><p class="who">Твой ход, на него 60 секунд</p>' : '<p>Ход соперника…</p>');
+}
+function diceView(fresh) {
   const showDice = () => { $('#v').innerHTML = `<div class="dice">${S.players.map(p => { const r = S.rolls[p.id]; return `<div>${FACE[r[0] - 1]}${FACE[r[1] - 1]}<small>${esc(p.name)}: ${r[0] + r[1]}</small></div>`; }).join('')}</div>` + resultHtml(fresh); };
   if (!fresh) return showDice();
   $('#v').innerHTML = '<h2>Бросаем…</h2><div class="dice"><div class="spin">🎲</div><div class="spin">🎲</div></div>';
   setTimeout(() => { if (S && S.status === 'done' && S.game === 'dice') showDice(); }, 900);
 }
+function pokerView(fresh) {
+  const P = S.pk, done = S.status === 'done', idx = S.players.findIndex(p => p.id === me.id), pot = Object.values(P.total).reduce((a, b) => a + b, 0);
+  const seats = S.players.map((p, i) => `<div class="seat ${!done && i === P.turn ? 'turn' : ''} ${P.folded[p.id] ? 'fold' : ''}"><b>${p.id === me.id ? 'Ты' : esc(p.name)}${i === 0 ? ' 🔘' : ''}</b><span>${P.stacks[p.id]}${P.bets[p.id] && !done ? ' · ставка ' + P.bets[p.id] : ''}${P.allin[p.id] && !done ? ' · all-in' : ''}${P.folded[p.id] ? ' · пас' : ''}</span>${done && P.show && !P.folded[p.id] ? hand(P.hole[p.id]) + `<small>${P.best[p.id]}</small>` : ''}</div>`).join('');
+  let ctl;
+  if (done) {
+    raiseTo = 0;
+    const d = P.stacks[me.id] - S.stake, w = P.winners.map(id => esc(S.players.find(p => p.id === id).name)).join(', ');
+    if (fresh) buzz(d > 0 ? 'success' : d < 0 ? 'error' : 'warning');
+    ctl = `<p class="res ${d > 0 ? 'win' : ''}">${d > 0 ? '+' + d : d < 0 ? '−' + -d : '±0'} фишек</p><p class="who">Банк ${P.pot}, победил: ${w}</p>` + rematchHtml();
+  } else if (P.turn === idx) {
+    const toCall = P.cur - P.bets[me.id], stack = P.stacks[me.id], maxTo = P.bets[me.id] + stack, minTo = Math.min(maxTo, P.cur + P.minRaise);
+    raiseTo = Math.min(maxTo, Math.max(minTo, raiseTo || minTo));
+    ctl = `<div class="row2"><button class="go alt" data-a="fold">Пас</button>${toCall > 0 ? `<button class="go" data-a="call">Колл ${Math.min(toCall, stack)}</button>` : '<button class="go" data-a="check">Чек</button>'}</div>
+    ${maxTo > P.cur ? `<div class="rz"><button data-r="-1">−</button><b>${raiseTo}</b><button data-r="1">+</button><button class="go" style="margin:0;flex:1" data-a="raise">Рейз до ${raiseTo}</button></div>` : ''}
+    <button class="go alt" data-a="allin">Ва-банк ${stack}</button><p class="who">Твой ход, на него 60 секунд</p>`;
+  } else { raiseTo = 0; ctl = `<p>Ходит ${esc(S.players[P.turn].name)}…</p>`; }
+  const street = { pre: 'Префлоп', flop: 'Флоп', turn: 'Тёрн', river: 'Ривер' }[P.street];
+  $('#v').innerHTML = `<div class="pot">Банк ${pot}</div>${hand(P.board)}<div class="who">${street}</div>${seats}<p class="who">Твои карты</p>${hand(P.hole[me.id])}${ctl}`;
+}
+function view() {
+  const key = S.status + JSON.stringify(S.rolls || (S.status === 'done' && (S.hands || S.pk)) || 0) + JSON.stringify(S.winner), fresh = key !== shown;
+  shown = key;
+  if (S.status === 'cancel') return lobby('Игра отменена, ставка вернулась.');
+  if (S.status === 'closed') return lobby('Соперники вышли, комната закрыта.');
+  if (!S.players.some(p => p.id === me.id)) return lobby('Ты больше не в этой комнате.');
+  if (S.status === 'wait') return waitView();
+  if (S.game === 'poker') return pokerView(fresh);
+  if (S.game === 'bj') return bjView(fresh);
+  diceView(fresh);
+}
 $('#v').onclick = async e => {
   const b = e.target.closest('button'); if (!b || b.disabled) return;
-  if (b.dataset.a) return ws && ws.send(JSON.stringify({ t: b.dataset.a }));
+  if (b.dataset.r) { raiseTo += Number(b.dataset.r) * S.pk.bb; return pokerView(false); }
+  if (b.dataset.a) { const m = { t: b.dataset.a }; if (m.t === 'raise') m.to = raiseTo; if (ws) ws.send(JSON.stringify(m)); if (m.t === 'leave') lobby(); return; }
   if (b.dataset.g) { game = b.dataset.g; return lobby(); }
+  if (b.dataset.m) { maxp = Number(b.dataset.m); return lobby(); }
   if (b.dataset.s) { stake = Number(b.dataset.s); return lobby(); }
   if (b.id === 'mk') return connect(newCode(), stake);
   if (b.id === 'jn') { const c = $('#code').value.trim().toUpperCase(); return /^[A-HJ-NP-Z2-9]{5}$/.test(c) ? connect(c, null) : ($('#err').textContent = 'Код из 5 символов'); }
   if (b.id === 'cn') return ws.send(JSON.stringify({ t: 'cancel' }));
-  if (b.id === 'bk') return lobby();
+  if (b.id === 'bk') { if (ws && S && S.status === 'done') ws.send(JSON.stringify({ t: 'leave' })); return lobby(); }
   if (b.id === 'bn') { try { const r = await api('/api/bonus', { method: 'POST' }); me = r; $('#bal').textContent = r.balance.toLocaleString('ru-RU'); lobby(r.ok ? 'Бонус получен' : ''); } catch (x) { lobby('Не вышло'); } return; }
   if (b.id === 'sh') tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent($('#v').dataset.link) + '&text=' + encodeURIComponent('Сыграем на ' + S.stake + ' фишек?'));
 };
@@ -146,5 +183,3 @@ const newCode = () => Array.from(crypto.getRandomValues(new Uint8Array(5)), b =>
 </script>
 </body>
 </html>
-
-APP_SHORT
